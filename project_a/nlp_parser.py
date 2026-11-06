@@ -74,16 +74,24 @@ class HinglishTaxParser:
         gross_salary = 0.0
         # Check patterns like "gross salary 12 lakh", "salary 15 lpa", "ctc 20 lakh", "meri salary 10L hai"
         salary_patterns = [
-            r"(?:gross(?:\s*salary)?|ctc|package|salary|meri\s*salary|kamata\s*hu)\s*(?:is|hai|of|:|=|around)?\s*([0-9\.]+\s*(?:cr|crore|lakh|lakhs|lac|lacs|lpa|l|k|hazar|thousand)?(?:\s*per\s*annum|\s*salana|\s*yearly)?)",
-            r"([0-9\.]+\s*(?:lpa|lakh|lacs|cr|crore))\s*(?:ctc|salary|gross|package)",
+            r"(?:gross(?:\s*salary|\s*pension)?|ctc|package|salary|pension|meri\s*salary|kamata\s*hu|earn|earns|earning|get|gets)\s*(?:is|hai|of|:|=|around)?\s*([0-9\.]+\s*(?:cr|crore|lakh|lakhs|lac|lacs|lpa|l|k|hazar|thousand)?(?:\s*per\s*annum|\s*salana|\s*yearly|\s*per\s*month|\s*pm)?)",
+            r"([0-9\.]+\s*(?:lpa|lakh|lacs|cr|crore))\s*(?:ctc|salary|gross|package|pension|per\s*annum)?",
             r"(?:income|kamai)\s*(?:hai|is)?\s*([0-9\.]+\s*(?:lakh|lacs|lac|l|k|cr|crore))"
         ]
         for pat in salary_patterns:
             m = re.search(pat, lower)
             if m:
-                val = parse_indian_currency_number(m.group(1))
+                matched_str = m.group(1)
+                val = parse_indian_currency_number(matched_str)
                 if val:
-                    gross_salary = val
+                    # check if per month was specified
+                    if "per month" in matched_str or "pm" in matched_str or "per month" in lower[m.start():m.end()+25]:
+                        if val < 500000:
+                            gross_salary = val * 12.0
+                        else:
+                            gross_salary = val
+                    else:
+                        gross_salary = val
                     break
 
         # Check monthly salary pattern e.g. "monthly salary 80k", "mahine ka 1 lakh"

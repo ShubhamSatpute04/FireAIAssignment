@@ -270,7 +270,22 @@ def generate_200_structured_test_cases() -> List[TaxPayerProfile]:
                 financial_year=fy
             ))
 
-    return cases  # 54 + 54 + 24 + 40 + 16 + 16 = 204 structured test cases!
+    # 6. Fine-grained Marginal Relief edge cases (20 cases)
+    for delta in [1000, 2500, 5000, 7500, 10000, 15000, 20000, 25000, 30000, 40000]:
+        # FY 2024-25 marginal relief around 7.75L gross (7.00L taxable)
+        cases.append(TaxPayerProfile(
+            gross_salary=775000.0 + delta,
+            basic_salary=(775000.0 + delta) * 0.5,
+            financial_year="FY 2024-25"
+        ))
+        # FY 2025-26 marginal relief around 12.75L gross (12.00L taxable)
+        cases.append(TaxPayerProfile(
+            gross_salary=1275000.0 + delta,
+            basic_salary=(1275000.0 + delta) * 0.5,
+            financial_year="FY 2025-26"
+        ))
+
+    return cases  # 216 structured test cases!
 
 
 # ---------------------------------------------------------------------------
@@ -329,3 +344,64 @@ NATURAL_LANGUAGE_TEST_INPUTS = [
     "Gross 11.8 LPA in FY 2025-26. Is tax completely zero under new regime?",
     "Salary 1 Crore. Exactly how much tax do I save under New Regime in FY 2024-25?"
 ]
+
+
+# ---------------------------------------------------------------------------
+# 3. Executable Unit Tests for Project A
+# ---------------------------------------------------------------------------
+import unittest
+
+
+class TestIndianIncomeTaxSuite(unittest.TestCase):
+
+    def test_official_benchmarks_all_pass(self):
+        """Validates all 30 official Income Tax Department benchmark calculations."""
+        for idx, (kwargs, exp_old, exp_new_24, exp_new_25, note) in enumerate(OFFICIAL_ITD_BENCHMARKS, 1):
+            prof_24 = TaxPayerProfile(**kwargs)
+            prof_25 = TaxPayerProfile(**{**kwargs, "financial_year": "FY 2025-26"})
+
+            old_res = calculate_old_regime_tax(prof_24)
+            new_res_24 = calculate_new_regime_tax(prof_24)
+            new_res_25 = calculate_new_regime_tax(prof_25)
+
+            self.assertAlmostEqual(old_res.total_tax_payable, exp_old, delta=1.0, msg=f"Benchmark {idx} Old tax failed: {note}")
+            self.assertAlmostEqual(new_res_24.total_tax_payable, exp_new_24, delta=1.0, msg=f"Benchmark {idx} New FY24-25 failed: {note}")
+            self.assertAlmostEqual(new_res_25.total_tax_payable, exp_new_25, delta=1.0, msg=f"Benchmark {idx} New FY25-26 failed: {note}")
+
+    def test_200_structured_test_cases_generation(self):
+        """Verifies generation and successful execution of 200+ structured test profiles."""
+        cases = generate_200_structured_test_cases()
+        self.assertGreaterEqual(len(cases), 200)
+        for c in cases:
+            res = compare_regimes(c)
+            self.assertGreaterEqual(res.old_regime.total_tax_payable, 0.0)
+            self.assertGreaterEqual(res.new_regime.total_tax_payable, 0.0)
+            self.assertIn(res.recommended_regime, ["Old Tax Regime", "New Tax Regime (Sec 115BAC)", "Both Regimes Equal"])
+
+    def test_50_natural_language_inputs_parsing(self):
+        """Verifies NLP parsing and extraction on 50 Hinglish / English inputs."""
+        parser = HinglishTaxParser()
+        self.assertEqual(len(NATURAL_LANGUAGE_TEST_INPUTS), 50)
+        for query in NATURAL_LANGUAGE_TEST_INPUTS:
+            prof = parser.parse(query)
+            self.assertGreater(prof.gross_salary, 0.0)
+
+    def test_marginal_relief_87a_fy24_25(self):
+        """Tests Section 87A marginal relief in New Regime at Rs 7.05 Lakhs (Taxable)."""
+        # Gross 7.80L - 75k std deduction = 7.05L taxable
+        prof = TaxPayerProfile(gross_salary=780000.0, financial_year="FY 2024-25")
+        calc = calculate_new_regime_tax(prof)
+        # Tax before cess must not exceed excess income (5,000)
+        self.assertEqual(calc.tax_after_rebate, 5000.0)
+        self.assertEqual(calc.total_tax_payable, 5200.0)
+
+    def test_zero_tax_threshold_fy25_26(self):
+        """Tests that up to Rs 12.75 Lakhs gross salary pays Rs 0 tax in FY 2025-26."""
+        prof = TaxPayerProfile(gross_salary=1275000.0, financial_year="FY 2025-26")
+        calc = calculate_new_regime_tax(prof)
+        self.assertEqual(calc.total_tax_payable, 0.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
+

@@ -244,3 +244,4 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
             }
         }
     }
+

@@ -138,9 +138,13 @@ class RuleBasedQualityDetector:
                 cl_str = df.at[idx, "closed_date"]
                 if pd.notna(c_str) and pd.notna(cl_str):
                     try:
-                        c_dt = pd.to_datetime(str(c_str))
-                        cl_dt = pd.to_datetime(str(cl_str))
-                        if cl_dt < c_dt:
+                        c_dt = pd.to_datetime(str(c_str), format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
+                        cl_dt = pd.to_datetime(str(cl_str), format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
+                        if pd.isna(c_dt):
+                            c_dt = pd.to_datetime(str(c_str), errors="coerce")
+                        if pd.isna(cl_dt):
+                            cl_dt = pd.to_datetime(str(cl_str), errors="coerce")
+                        if pd.notna(cl_dt) and pd.notna(c_dt) and cl_dt < c_dt:
                             flagged.append(idx)
                     except Exception:
                         pass

@@ -191,3 +191,4 @@ class GeminiLLMQualityDetector:
             "personal_information_in_text": categorized["personal_information_in_text"],
             "audit_explanations": flags[:5]
         }
+

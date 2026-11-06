@@ -64,6 +64,7 @@ class NYC311CorruptionInjector:
         }
 
         # 2. Data Type Changes
+        cdf["latitude"] = cdf["latitude"].astype(object)
         idx_dtype = random.sample(range(n), k)
         for idx in idx_dtype:
             original = cdf.at[idx, "latitude"]
